@@ -1,0 +1,28 @@
+{
+    "update_id": 429675124,
+    "message": {
+        "message_id": 662,
+        "from": {
+            "id": 855480841,
+            "is_bot": false,
+            "first_name": "Dumbledore",
+            "username": "dumbledorable44",
+            "language_code": "yue-hant-hk"
+        },
+        "chat": {
+            "id": 855480841,
+            "first_name": "Dumbledore",
+            "username": "dumbledorable44",
+            "type": "private"
+        },
+        "date": 1596639263,
+        "text": "/start",
+        "entities": [
+            {
+                "offset": 0,
+                "length": 6,
+                "type": "bot_command"
+            }
+        ]
+    }
+}
