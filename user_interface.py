@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
 from time import sleep
 import threading
 
@@ -24,4 +26,4 @@ def p():
         print('ok')
         sleep(1)
 
-p()
+print(u'\u2611\uFE0F')

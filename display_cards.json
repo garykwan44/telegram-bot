@@ -1,0 +1,70 @@
+[
+    [
+        {
+            "text": "\u2666\ufe0f3",
+            "callback_data": 1
+        },
+        {
+            "text": "\u2663\ufe0f3",
+            "callback_data": 2
+        },
+        {
+            "text": "\u2665\ufe0f3",
+            "callback_data": 3
+        },
+        {
+            "text": "\u2660\ufe0f3",
+            "callback_data": 4
+        },
+        {
+            "text": "\u2666\ufe0f4",
+            "callback_data": 5
+        }
+    ],
+    [
+        {
+            "text": "\u2663\ufe0f4",
+            "callback_data": 6
+        },
+        {
+            "text": "\u2665\ufe0f4",
+            "callback_data": 7
+        },
+        {
+            "text": "\u2660\ufe0f4",
+            "callback_data": 8
+        },
+        {
+            "text": "\u2666\ufe0f5",
+            "callback_data": 9
+        },
+        {
+            "text": "\u2663\ufe0f5",
+            "callback_data": 10
+        }
+    ],
+    [
+        {
+            "text": "\u2665\ufe0f5",
+            "callback_data": 11
+        },
+        {
+            "text": "\u2660\ufe0f5",
+            "callback_data": 12
+        },
+        {
+            "text": "\u2666\ufe0f6",
+            "callback_data": 13
+        }
+    ],
+    [
+        {
+            "text": "pass",
+            "callback_data": "pass"
+        },
+        {
+            "text": "ok",
+            "callback_data": "ok"
+        }
+    ]
+]

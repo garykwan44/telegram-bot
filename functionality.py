@@ -1,3 +1,4 @@
+import header
 import json
 import requests
 import re
@@ -12,7 +13,7 @@ colltn = firestore.colltn_list()  # 'User', 'Game'
 
 def write_json(data, filename='response.json'):
     with open(filename, 'w') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+        json.dump(data, f, indent=4, ensure_ascii=True)
 
 
 def parse_message(message):
@@ -34,6 +35,16 @@ def send_message(chat_id, text='sth'):
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     payload = {'chat_id': chat_id, 'text': text}
 
+    r = requests.post(url, json=payload)
+    return r
+
+
+def delete_message(chat_id, message_id):
+    url = f'https://api.telegram.org/bot{token}/deleteMessage'
+    payload = {
+        'chat_id': chat_id,
+        'message_id': message_id
+    }
     r = requests.post(url, json=payload)
     return r
 
@@ -61,6 +72,21 @@ def send_inline_keyboard(chat_id, text, inline_k):
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     r = requests.post(url, json=payload)
     return r
+
+
+def edit_inline_keyboard(chat_id, message_id, text, inline_k):
+    payload = {
+        'chat_id': chat_id,
+        'message_id': message_id,
+        'text': text,
+        'reply_markup': {
+            'inline_keyboard': inline_k
+        }
+    }
+    url = f'https://api.telegram.org/bot{token}/editMessageText'
+    r = requests.post(url, json=payload)
+    return r
+
 
 
 def add_account(message):
@@ -201,8 +227,27 @@ def game_join(message, game_id):
     else:
         send_message(message['message']['chat']['id'], "No games is running.")
 
+
+from telegram import message, Bot
+bot = Bot('1343142606:AAG7_HsYBvPcT_UyGXQ2ytkaTCujBM4dumo')
+
+def send():
+    p = bot.sendMessage(855480841, 'hi')
+    print(p)
+
+
+
+
+
+
+
+
+
+
 # Not yet finished: flee the game
 def say():
     while True:
         print('hi')
         time.sleep(1)
+
+# send_message(855480841, u'\u2665\ufe0f')

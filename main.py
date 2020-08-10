@@ -2,6 +2,7 @@ import header
 from game_engine import Game
 from flask import Flask, request, Response
 from threading import Thread
+from time import sleep
 
 # external
 import functionality as funct
@@ -10,21 +11,25 @@ from functionality import write_json, parse_message, send_message
 # token = '1343142606:AAG7_HsYBvPcT_UyGXQ2ytkaTCujBM4dumo'
 app = Flask(__name__)
 game_begin = False
+new_game = None
 
 
 @app.route('/', methods=['POST', 'GET'])
 def index():
-    global game_begin
+    global game_begin, new_game
 
     if request.method == 'POST':
         msg = request.get_json()
         type = list(msg.keys())
 
+        write_json(msg, 'telegram_request.json')
+
         if 'message' in type and not game_begin:
-            write_json(msg, 'telegram_request.json')
             chat_id, symbol = parse_message(msg)
             user_id = msg['message']['from']['id']
             user_exists = funct.user_exists(user_id)
+
+            print(symbol)
 
             if not symbol:
                 # write_json(msg, 'telegram_request.json')
@@ -39,7 +44,10 @@ def index():
                     game_begin = funct.game_start(msg, True)  # Test mode is on.
                     print(game_begin)
                     if game_begin:
-                        t = Thread(target=funct.say, args=())
+
+                        new_game = Game(-335838630)
+                        new_game.begin()
+                        t = Thread(target=new_game.in_game, args=())
                         t.start()
                     else:
                         send_message(chat_id, "Game ended.")
@@ -64,23 +72,35 @@ def index():
                     send_message(chat_id, "You haven't signed in!")
 
             else:
-                funct.send_inline_keyboard(chat_id, 'hi', [[{'text': 'd', 'callback_data': 'ok'}]])
-                # funct.callback()
-                write_json(msg, 'telegram_request.json')
+                funct.send_inline_keyboard(chat_id, 'hi', [[{'text': 'd', 'callback_data': 'ccc'}]])
                 send_message(chat_id, 'Command not found.')
+
+
+
 
         # update = 'callback_query'
         elif 'callback_query' in type:
             # print(msg['callback_query']['id'])
-            callback_data = msg['callback_query']['message']['reply_markup']['inline_keyboard'][0][0]['callback_data']
+            callback_data = msg['callback_query']['data']
             # print(callback_data)
 
             """Handler"""
+            if callback_data == 'ccc':
+                pass
+
+            elif callback_data == 'ok':
+                new_game.card_select_is_done(msg)
+
+            elif callback_data == 'pass':
+                new_game.pass_the_turn(msg)
+
+            elif 1 <= int(callback_data) <= 52:
+                new_game.card_select(callback_data, msg)
+
 
             funct.answer_callback_query(msg['callback_query']['id'])
-            pass
 
-        # write_json(msg, 'telegram_request.json')
+        write_json(msg, 'telegram_request.json')
         return Response('ok', status=200)
 
     # localhost: 5000

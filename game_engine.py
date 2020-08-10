@@ -1,19 +1,24 @@
 import header
 import firestore
 import time
+import card
 import threading
-from random import shuffle
-from functionality import send_inline_keyboard
 from card import Card, Deck
+from random import shuffle
+from functionality import send_inline_keyboard, edit_inline_keyboard, send_message, delete_message
+from copy import deepcopy
 
 colltn = firestore.colltn_list()  # 'User', 'Game'
 
 
 class Player():
     def __init__(self, player_id, cards):
-        self.__player_id = player_id
-        self.__cards = cards  # initially 13 Card objects in a list
-        self.__round_cards = []  # the player's choices in his/her round
+        self.__player_id = player_id  # Type: int
+        self.__cards = cards  # Type: list(card). initially 13 Card objects in a list
+        self.__round_cards = []  # Type: list(card). the player's choices in his/her round
+        self.__round_cards_button = self.display_cards_button()
+        self.__win = False
+        self.__winner_rank = 0
 
     # When a game starts, if the player initially has '♦3', then he/she will be the first player of the sequence:
     def first_start(self):
@@ -27,10 +32,16 @@ class Player():
     def get_player_id(self):
         return self.__player_id
 
+    def get_cards(self):
+        return self.__cards
+
     def add_round_cards(self, card):
         self.__round_cards.append(card)
 
-    # Clear the round_cards:
+    def get_round_cards(self):
+        return self.__round_cards
+
+    # Clear all the round_cards:
     def clear_round_cards(self):
         self.__round_cards.clear()
 
@@ -38,12 +49,31 @@ class Player():
     def remove_round_cards(self, card):
         self.__round_cards.remove(card)
 
-    # Return an array of an array
+    # Remove the used cards:
+    def remove_used_cards(self, cards):
+        for c in cards:
+            self.__cards.remove(c)
+
+    # Return str
+    def display_round_cards(self):
+        text = ''
+        for c in self.__round_cards:
+            text += (c.get_suit() + c.get_value() + ' ')
+        return text
+
+    # Return str
     def display_cards(self):
+        text = ''
+        for c in self.__cards:
+            text += (c.get_suit() + c.get_value() + ' ')
+        return text
+
+    # Return an array of an array
+    def display_cards_button(self):
         if len(self.__cards) == 0:
             return None
 
-        col = 5
+        col = 4
         row = len(self.__cards) // col
         index = 0
         display = []
@@ -64,19 +94,60 @@ class Player():
             display.append(temp)
 
         display.append([{'text': 'pass', 'callback_data': 'pass'}, {'text': 'ok', 'callback_data': 'ok'}])
-        return display
 
+        self.__round_cards_button = display
+        return self.__round_cards_button
+
+    def card_selected_button(self, rank):
+        k = deepcopy(self.__round_cards_button)
+
+        for row in k:
+            for col in row:
+                if col['callback_data'] == rank:
+                    col['text'] = col['text'] + u'\u2611\uFE0F'
+                    break
+        self.__round_cards_button = k
+
+        return self.__round_cards_button
+
+    def card_deselected_button(self, rank):
+        k = deepcopy(self.__round_cards_button)
+
+        for row in k:
+            for col in row:
+                if col['callback_data'] == rank:
+                    col['text'] = col['text'].replace(u'\u2611\uFE0F', '')
+                    break
+        self.__round_cards_button = k
+
+        return self.__round_cards_button
+
+    def is_win(self):
+        return self.__win
+
+    def set_win(self):
+        self.__win = True
+
+    def get_winner_rank(self):
+        return self.__winner_rank
+
+    def set_winner_rank(self, winner_rank):
+        self.__winner_rank = winner_rank
 
 class Game():
     def __init__(self, game_id):
-        self.__game_id = game_id
-        self.__init_deck = Deck()               # The deck with 52 cards.
-        self.__current_cards = []               # The cards on the table.
+        self.__game_id = game_id  # Type: int
+        self.__init_deck = Deck()  # Type: Deck obj. The deck with 52 cards.
+        self.__used_cards = []  # Type: list(Card). The cards that are used.
         self.__round = 1
-        self.__players = self.add_players()     # 4 players in the game.
+        self.__players = self.add_players()  # 4 players in the game.
         self.__sequence = self.set_sequence()
-        self.__next_turn = False                # If a player tapped 'ok' or 'pass' -> True
+        self.__current_cards = []  # Type: list(Card). The cards on the table.
+        self.__current_cards_owner = self.__sequence[0]  # Who gives out the current cards
+        self.__current_round_player = self.__sequence[0]  # Type: Player obj. The player of the current round.
+        self.__next_turn = True  # If a player tapped 'ok' or 'pass' -> True
         self.__game_end = False
+        self.__winner_rank = 1
 
     def add_players(self):
         game = firestore.get_record(colltn[1], str(self.__game_id))
@@ -87,6 +158,27 @@ class Game():
             Player(game['player']['player04'], self.__init_deck.get_cards(3))
         ]
         return players
+
+    # get an individual player from the list. player_id: int
+    def get_player(self, player_id):
+        for player in self.__players:
+            pid = player.get_player_id()
+            if pid == player_id:
+                return player
+        return None
+
+    def get_current_round_player(self):
+        return self.__current_round_player
+
+    # Return str
+    def display_current_cards(self):
+        text = ''
+        for c in self.__current_cards:
+            text += (c.get_suit() + c.get_value() + ' ')
+        return text
+
+    def set_current_cards(self, cards):
+        self.__current_cards = deepcopy(cards)
 
     def set_sequence(self):
         queue = self.__players.copy()
@@ -111,33 +203,129 @@ class Game():
 
             if diff >= target_time:
                 print('Time up!')
+                self.__next_turn = True
                 break
             time.sleep(1)
 
-    # Check if the player of the current turn has tapped the 'ok':
-    def check_next_turn(self):
-        while not self.__next_turn:
-            next_turn = firestore.get_record(colltn[1], str(self.__game_id))['next_turn']
-            if next_turn:
-                self.__next_turn = True
-            else:
-                self.__next_turn = False
-        time.sleep(1)
-
-    def game_begin(self):
+    def begin(self):
         firestore.update_record(colltn[1], str(self.__game_id), {'start': True})
 
         # show the starting cards to the players:
         for player in self.__players:
             k = player.display_cards()
-            send_inline_keyboard(player.get_player_id(), 'Starting cards:', k)
+            send_message(player.get_player_id(), 'Starting Cards:\n' + k)
+            # send_inline_keyboard(player.get_player_id(), 'Starting cards:', k)
+            # print(k)
+
+    # If a card is selected by a player in his/her round, or used by a player, that card is said to be 'used'.
+    # card_rank: str
+    def card_select(self, card_rank, message):
+        current_round_player = self.__current_round_player
+        card = self.__init_deck.get_card(int(card_rank))
+
+        chat_id = current_round_player.get_player_id()
+        message_id = message['callback_query']['message']['message_id']
+        text = 'The cards on the desk: ' + self.display_current_cards()
+
+        if card not in self.__used_cards:
+            current_round_player.add_round_cards(card)
+            self.__used_cards.append(card)
+            print(current_round_player.get_round_cards())
+
+            k = current_round_player.card_selected_button(int(card_rank))
             print(k)
+            edit_inline_keyboard(chat_id, message_id, text, k)
 
+        else:
+            current_round_player.remove_round_cards(card)
+            self.__used_cards.remove(card)
+            print(current_round_player.get_round_cards())
 
-    def new_turn(self, player):
-        if not self.__sequence:
-            pass
+            k = current_round_player.card_deselected_button(int(card_rank))
+            print(k)
+            edit_inline_keyboard(chat_id, message_id, text, k)
 
+    # If the player taps the 'ok' button:
+    def card_select_is_done(self, message):
+        current_round_player = self.__current_round_player
+        valid, greater = card.compare(self.__current_cards, current_round_player.get_round_cards())
+
+        print(valid, greater)
+        if valid and greater:
+            cards = current_round_player.get_round_cards()
+            self.set_current_cards(cards)
+            current_round_player.remove_used_cards(cards)
+            current_round_player.clear_round_cards()
+
+            # show_text = current_round_player.display_round_cards()
+            # send_message(current_round_player.get_player_id(), show_text)
+            message_id = message['callback_query']['message']['message_id']
+            delete_message(current_round_player.get_player_id(), message_id)
+
+            if not current_round_player.get_cards():
+                current_round_player.set_win()
+                current_round_player.set_winner_rank(self.__winner_rank)
+
+                text = 'Congrats! Your rank: ' + str(self.__winner_rank)
+                send_message(current_round_player.get_player_id(), text)
+                self.__winner_rank += 1
+                # next player:
+                self.__current_cards_owner = self.__sequence[0]
+
+            else:
+                self.__current_cards_owner = current_round_player
+
+            self.__next_turn = True
+
+        else:
+            send_message(current_round_player.get_player_id(), 'Invalid cards.')
+
+    def pass_the_turn(self, message):
+        current_round_player = self.__current_round_player
+
+        if self.__current_cards_owner == current_round_player:
+            send_message(current_round_player.get_player_id(), 'You cannot pass.')
+        else:
+            current_round_player.clear_round_cards()
+            message_id = message['callback_query']['message']['message_id']
+            delete_message(current_round_player.get_player_id(), message_id)
+            self.__next_turn = True
+
+    def in_game(self):
+        while True:
+            current_round_player = self.__sequence.pop(0)
+
+            if not self.__sequence:
+                self.__next_turn = False
+                current_round_player.set_win()
+                current_round_player.set_winner_rank(self.__winner_rank)
+                break
+
+            if self.__next_turn:
+                self.__next_turn = False
+
+                if current_round_player == self.__current_cards_owner:
+                    self.__current_cards.clear()
+
+                if not self.__current_cards:
+                    text = 'Nothing is on the desk!'
+                else:
+                    text = 'The cards on the desk: ' + self.display_current_cards()
+
+                self.__current_round_player = current_round_player
+                k = current_round_player.display_cards_button()
+                send_inline_keyboard(current_round_player.get_player_id(), "It's your turn!\n" + text, k)
+                print(k)
+
+                # timer = threading.Thread(target=self.timer, args=(15,))
+                # timer.start()
+                # timer.join()
+                
+                if not current_round_player.is_win():
+                    self.__sequence.append(current_round_player)
+
+            time.sleep(1)
+        print('game_end')
 
 """
         while not self.__game_end:
@@ -163,14 +351,20 @@ class Game():
 
 """Not Yet Finished"""
 
-
 # new_Game = Game(855480841)
 # new_Game.game_begin()
 
-"""new_deck = Deck()
+"""new_deck = Deck(False)
 gary = Player('556', new_deck.get_cards(0))
-k = gary.display_cards()
+k = gary.display_cards_button()
+
+k = gary.card_selected_button('3')
+
+import json
+with open('display_cards.json', 'w') as f:
+    json.dump(k, f, indent=4, ensure_ascii=True)
 print(k)
 
-send_inline_keyboard(855480841, 'hi', k)
-"""
+# send_inline_keyboard(855480841, 'hi', k)"""
+
+
